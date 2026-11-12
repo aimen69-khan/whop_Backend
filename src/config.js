@@ -1,13 +1,14 @@
 const path = require("path");
 
 function csv(value = "") {
-  return value.split(",").map(v => v.trim()).filter(Boolean);
+  // Strip trailing slashes from each origin so they match browser-sent origins
+  return value.split(",").map(v => v.trim().replace(/\/+$/, "")).filter(Boolean);
 }
 
 module.exports = {
   port: Number(process.env.PORT || 4000),
   nodeEnv: process.env.NODE_ENV || "development",
-  corsOrigins: csv(process.env.CORS_ORIGINS || "https://whop-frontend-tau.vercel.app/"),
+  corsOrigins: csv(process.env.CORS_ORIGINS || "https://whop-frontend-tau.vercel.app"),
   adminApiKey: process.env.ADMIN_API_KEY || "",
   dataFile: path.resolve(process.cwd(), process.env.DATA_FILE || "./data/leads.json"),
   rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),

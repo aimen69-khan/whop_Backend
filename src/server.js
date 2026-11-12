@@ -15,17 +15,28 @@ const app = express();
 
 app.disable("x-powered-by");
 app.use(helmet());
-app.use(cors({
+
+// --- CORS ---
+// Origins must NOT have a trailing slash — browsers send bare origins.
+// config.js strips trailing slashes at parse time.
+const corsOptions = {
   origin(origin, callback) {
+    // Allow server-to-server calls (no Origin header) and whitelisted origins
     if (!origin || config.corsOrigins.includes("*") || config.corsOrigins.includes(origin)) {
       return callback(null, true);
     }
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
-  methods: ["GET", "POST", "OPTIONS"],
+  methods: ["GET", "POST", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Admin-Key"],
   credentials: true
-}));
+};
+
+app.use(cors(corsOptions));
+
+// Explicitly handle preflight for all routes so Vercel edge doesn't swallow OPTIONS
+app.options("*", cors(corsOptions));
+
 app.use(express.json({ limit: "100kb" }));
 app.use(rateLimit({
   windowMs: config.rateLimitWindowMs,
@@ -33,6 +44,8 @@ app.use(rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false
 }));
+
+// --- Routes ---
 
 app.get("/", (req, res) => {
   res.json({
@@ -63,15 +76,16 @@ app.get("/api/plans", (req, res) => {
   res.json({
     success: true,
     plans: [
-      { key: "inspection", name: "Roof Inspection", price: 149, currency: "USD", detail: "On-site inspection + photo report" },
-      { key: "deposit", name: "Project Deposit", price: 500, currency: "USD", detail: "Reserve your approved roofing project" },
-      { key: "flat", name: "Roof Tune-Up", price: 399, currency: "USD", detail: "Flat-rate minor maintenance visit" }
+      { key: "inspection", name: "Roof Inspection",  price: 149, currency: "USD", detail: "On-site inspection + photo report" },
+      { key: "deposit",    name: "Project Deposit",  price: 500, currency: "USD", detail: "Reserve your approved roofing project" },
+      { key: "flat",       name: "Roof Tune-Up",     price: 399, currency: "USD", detail: "Flat-rate minor maintenance visit" }
     ]
   });
 });
 
 app.post("/api/leads", async (req, res, next) => {
   try {
+    // Honeypot: silently accept bot submissions that fill the hidden `website` field
     if (req.body && req.body.website) {
       return res.status(201).json({ success: true, message: "Estimate request received." });
     }
@@ -101,7 +115,6 @@ app.post("/api/leads", async (req, res, next) => {
     next(err);
   }
 });
-
 
 app.get("/api/admin/leads", requireAdmin, async (req, res, next) => {
   try {
@@ -147,14 +160,20 @@ app.patch("/api/admin/leads/:id", requireAdmin, async (req, res, next) => {
 app.use(notFound);
 app.use(errorHandler);
 
-ensureStore(config.dataFile)
-  .then(() => app.listen(config.port, () => {
-    console.log(`Summit Roofing API listening on http://localhost:${config.port}`);
-    console.log(`Allowed CORS origins: ${config.corsOrigins.join(", ")}`);
-  }))
-  .catch(err => {
-    console.error("Could not initialize lead storage:", err);
-    process.exit(1);
-  });
+// --- Server startup ---
+// On Vercel (serverless) the module is imported — do NOT call listen().
+// In local dev / a traditional host, listen normally.
+if (require.main === module) {
+  ensureStore(config.dataFile)
+    .then(() => app.listen(config.port, () => {
+      console.log(`Summit Roofing API listening on http://localhost:${config.port}`);
+      console.log(`Allowed CORS origins: ${config.corsOrigins.join(", ")}`);
+    }))
+    .catch(err => {
+      console.error("Could not initialize lead storage:", err);
+      process.exit(1);
+    });
+}
 
+// Export the app so Vercel can import it as a serverless function
 module.exports = app;
