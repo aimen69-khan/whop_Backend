@@ -17,7 +17,6 @@ app.disable("x-powered-by");
 app.use(helmet());
 app.use(cors({
   origin(origin, callback) {
-    // Allow non-browser tools and same-origin requests.
     if (!origin || config.corsOrigins.includes("*") || config.corsOrigins.includes(origin)) {
       return callback(null, true);
     }
@@ -73,7 +72,6 @@ app.get("/api/plans", (req, res) => {
 
 app.post("/api/leads", async (req, res, next) => {
   try {
-    // Basic honeypot support for bots.
     if (req.body && req.body.website) {
       return res.status(201).json({ success: true, message: "Estimate request received." });
     }
@@ -104,7 +102,7 @@ app.post("/api/leads", async (req, res, next) => {
   }
 });
 
-// Admin endpoints. No database: leads are read from data/leads.json.
+
 app.get("/api/admin/leads", requireAdmin, async (req, res, next) => {
   try {
     const leads = await readAll(config.dataFile);

@@ -7,7 +7,7 @@ function csv(value = "") {
 module.exports = {
   port: Number(process.env.PORT || 4000),
   nodeEnv: process.env.NODE_ENV || "development",
-  corsOrigins: csv(process.env.CORS_ORIGINS || "http://localhost:5173,http://127.0.0.1:5173"),
+  corsOrigins: csv(process.env.CORS_ORIGINS || "https://whop-frontend-tau.vercel.app/"),
   adminApiKey: process.env.ADMIN_API_KEY || "",
   dataFile: path.resolve(process.cwd(), process.env.DATA_FILE || "./data/leads.json"),
   rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
